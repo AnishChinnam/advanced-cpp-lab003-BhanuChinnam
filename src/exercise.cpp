@@ -2,117 +2,158 @@
 #include <algorithm>
 #include <utility>
 
-// TODO: Implement default constructor.
-DynamicBuffer::DynamicBuffer() {
-    
+// Default constructor: owns nothing.
+DynamicBuffer::DynamicBuffer() : data_(nullptr), size_(0) {
 }
 
-// TODO: Implement allocation and initialization.
-// Use a C++ array allocated with new[] and zero-initialize the contents.
-DynamicBuffer::DynamicBuffer(size_t capacity) {
+// Allocate a zero-initialized buffer. The () on new int[capacity]()
+// value-initializes every element to 0.
+DynamicBuffer::DynamicBuffer(size_t capacity) : data_(nullptr), size_(0) {
+    if (capacity > 0) {
+        data_ = new int[capacity]();
+        size_ = capacity;
+    }
 }
 
-// TODO: Implement deep-copy constructor.
-DynamicBuffer::DynamicBuffer(const DynamicBuffer& other) {
-    
+// Deep-copy constructor: allocates its own storage.
+DynamicBuffer::DynamicBuffer(const DynamicBuffer& other) : data_(nullptr), size_(0) {
+    copyFrom(other);
 }
 
-// TODO: Implement move constructor.
-DynamicBuffer::DynamicBuffer(DynamicBuffer&& other) noexcept {
-
+// Move constructor: steals the pointer and leaves the source empty but valid.
+DynamicBuffer::DynamicBuffer(DynamicBuffer&& other) noexcept
+    : data_(other.data_), size_(other.size_) {
+    other.data_ = nullptr;
+    other.size_ = 0;
 }
 
-// TODO: Implement destructor with proper cleanup.
+// Destructor: RAII cleanup.
 DynamicBuffer::~DynamicBuffer() {
-    
+    release();
 }
 
-// TODO: Implement copy assignment with self-assignment protection.
+// Copy assignment via copy-and-swap: strong exception safety.
+// If the copy throws, *this is untouched.
 DynamicBuffer& DynamicBuffer::operator=(const DynamicBuffer& other) {
-    
-    
+    if (this != &other) {
+        DynamicBuffer temp(other);
+        swap(temp);
+    }
     return *this;
 }
 
-// TODO: Implement move assignment.
+// Move assignment: release what we hold, then take the source's resource.
 DynamicBuffer& DynamicBuffer::operator=(DynamicBuffer&& other) noexcept {
-    
-
+    if (this != &other) {
+        release();
+        data_ = other.data_;
+        size_ = other.size_;
+        other.data_ = nullptr;
+        other.size_ = 0;
+    }
     return *this;
 }
 
-// TODO: Return the current managed size.
 size_t DynamicBuffer::size() const noexcept {
-    
-    return 15;
+    return size_;
 }
 
-// TODO: Return true if the buffer is empty.
 bool DynamicBuffer::empty() const noexcept {
-    
-    return False;
+    return size_ == 0;
 }
 
-// TODO: Implement resize with resource ownership and exception safety.
-// Keep all existing values up to the minimum of old and new sizes.
+// Resize preserving the first min(old, new) values; new slots are zeroed.
+// The old buffer is freed only after the new allocation succeeds.
 void DynamicBuffer::resize(size_t newSize) {
-
+    if (newSize == size_) {
+        return;
+    }
+    if (newSize == 0) {
+        release();
+        return;
+    }
+    int* buffer = new int[newSize]();
+    const size_t kept = std::min(size_, newSize);
+    for (size_t i = 0; i < kept; ++i) {
+        buffer[i] = data_[i];
+    }
+    delete[] data_;
+    data_ = buffer;
+    size_ = newSize;
 }
 
-// TODO: Fill all elements with the given value.
 void DynamicBuffer::fill(int value) {
-    
+    for (size_t i = 0; i < size_; ++i) {
+        data_[i] = value;
+    }
 }
 
-// TODO: Validate index and assign the value.
+// Bounds-checked write.
 void DynamicBuffer::setAt(size_t index, int value) {
-    
+    if (index >= size_) {
+        throw std::out_of_range("DynamicBuffer::setAt: index out of range");
+    }
+    data_[index] = value;
 }
 
-// TODO: Return element at index with bounds checking.
+// Bounds-checked read.
 int DynamicBuffer::at(size_t index) const {
-    
-
+    if (index >= size_) {
+        throw std::out_of_range("DynamicBuffer::at: index out of range");
+    }
+    return data_[index];
 }
 
-// TODO: Return a reference without bounds checking.
+// Unchecked access, matching std::vector's operator[] contract.
 int& DynamicBuffer::operator[](size_t index) {
-    
+    return data_[index];
 }
 
-// TODO: Return const reference without bounds checking.
 const int& DynamicBuffer::operator[](size_t index) const {
-    
-
+    return data_[index];
 }
 
-// TODO: Compare size and elements.
 bool DynamicBuffer::operator==(const DynamicBuffer& other) const {
-
+    if (size_ != other.size_) {
+        return false;
+    }
+    for (size_t i = 0; i < size_; ++i) {
+        if (data_[i] != other.data_[i]) {
+            return false;
+        }
+    }
+    return true;
 }
 
-// TODO: Implement inequality comparison.
 bool DynamicBuffer::operator!=(const DynamicBuffer& other) const {
-    
-
+    return !(*this == other);
 }
 
-// TODO: Return true when the buffer owns valid memory.
+// True when the buffer owns usable storage.
 DynamicBuffer::operator bool() const noexcept {
-    
+    return data_ != nullptr && size_ > 0;
 }
 
-// TODO: Delete allocated memory and reset state.
+// Free the storage and return to the empty-but-valid state.
 void DynamicBuffer::release() {
-    
+    delete[] data_;
+    data_ = nullptr;
+    size_ = 0;
 }
 
-// TODO: Deep-copy the other object's contents.
+// Replace current contents with a deep copy of other.
 void DynamicBuffer::copyFrom(const DynamicBuffer& other) {
-    
+    release();
+    if (other.size_ > 0) {
+        data_ = new int[other.size_];
+        for (size_t i = 0; i < other.size_; ++i) {
+            data_[i] = other.data_[i];
+        }
+        size_ = other.size_;
+    }
 }
 
-// TODO: Swap the resources of two buffers.
 void DynamicBuffer::swap(DynamicBuffer& other) noexcept {
-    
+    std::swap(data_, other.data_);
+    std::swap(size_, other.size_);
 }
